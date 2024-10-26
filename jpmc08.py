@@ -1,12 +1,21 @@
+import os
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 import requests
-import openai  # Ensure you have the OpenAI library installed
-import time
+import json
 
-# Set your OpenAI API key
-openai.api_key = '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'
+# Set your Hugging Face token
+os.environ['HUGGINGFACEHUB_API_TOKEN'] = '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'
+
+# Define the model and the Hugging Face API URL
+model_name = "gpt2"  # You can choose a different model from Hugging Face
+api_url = f"https://api-inference.huggingface.co/models/{model_name}"
+
+# Create headers with your token
+headers = {
+    "Authorization": f"Bearer {os.environ['HUGGINGFACEHUB_API_TOKEN']}",
+}
 
 # Function to get basic financial data for JP Morgan
 def get_financial_data(ticker):
@@ -35,29 +44,45 @@ def plot_stock_price(stock_price_data):
     plt.grid(True)
     plt.show()
 
-# Function to get current economic indicators from Alpha Vantage
+# Function to get current economic indicators from Alpha Vantage with caching
 def get_economic_indicators(api_key):
+    cache_file = 'economic_indicators_cache.json'
+    
+    # Check if the cache file exists
+    if os.path.exists(cache_file):
+        with open(cache_file, 'r') as f:
+            cache = json.load(f)
+            return cache.get('interest_rate'), cache.get('cpi')
+
+    # Fetch interest rate data
     interest_rate_url = f'https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&apikey={api_key}&datatype=json'
     try:
         response = requests.get(interest_rate_url)
+        response.raise_for_status()  # Raises an HTTPError for bad responses
         data = response.json()
-        current_interest_rate = float(data['data'][0]['value'])
+        current_interest_rate = float(data['data'][0]['value']) if 'data' in data and data['data'] else None
     except Exception as e:
         print(f"Error fetching interest rate: {e}")
         current_interest_rate = None
 
+    # Fetch CPI data
     cpi_url = f'https://www.alphavantage.co/query?function=CPI&apikey={api_key}&datatype=json'
     try:
         response = requests.get(cpi_url)
+        response.raise_for_status()  # Raises an HTTPError for bad responses
         data = response.json()
-        current_cpi = float(data['data'][0]['value'])
+        current_cpi = float(data['data'][0]['value']) if 'data' in data and data['data'] else None
     except Exception as e:
         print(f"Error fetching CPI: {e}")
         current_cpi = None
 
+    # Save the data to cache if valid
+    with open(cache_file, 'w') as f:
+        json.dump({'interest_rate': current_interest_rate, 'cpi': current_cpi}, f)
+
     return current_interest_rate, current_cpi
 
-# Function to analyze metrics and get recommendations from LLM
+# Function to analyze metrics and get recommendations from Hugging Face model
 def get_recommendation(pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense_ratio, interest_rate, cpi):
     prompt = (
         f"Given the following financial metrics for JP Morgan:\n"
@@ -68,22 +93,23 @@ def get_recommendation(pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense
         f"Expense Ratio: {expense_ratio}\n"
         f"Current Federal Funds Rate: {interest_rate}\n"
         f"Current Consumer Price Index (CPI): {cpi}\n\n"
-        "Provide a simple investment recommendation for someone with no finance background, "
-        "indicating whether to buy, hold, or sell the stock, and the reasoning behind it."
+        "Based on these financial metrics, explain whether to buy or not, and which metrics should be considered for buy/sell thresholds."
     )
 
-    while True:  # Loop to handle rate limit errors
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            return response['choices'][0]['message']['content']
-        except openai.error.RateLimitError:
-            print("Rate limit exceeded. Waiting for 60 seconds...")
-            time.sleep(60)  # Wait for 60 seconds before retrying
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_length": 150,
+        },
+    }
+
+    response = requests.post(api_url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        return response.json()[0]['generated_text']
+    else:
+        print("Error:", response.status_code, response.text)
+        return None
 
 # Run the program
 if __name__ == "__main__":
@@ -91,7 +117,8 @@ if __name__ == "__main__":
     stock_data, pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense_ratio = get_financial_data(ticker)
     plot_stock_price(stock_data)
 
-    api_key = 'S2MVB1J2Z0CAAM9H'  # Alpha Vantage API key
+    api_key = 'XM14CD2Y9TOP177V'  # Alpha Vantage API key
+
     interest_rate, cpi = get_economic_indicators(api_key)
 
     recommendation = get_recommendation(pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense_ratio, interest_rate, cpi)
