@@ -1,39 +1,35 @@
-import openai
-import time
-import logging
+import os
+import requests
 
-# Set your OpenAI API key
-openai.api_key = '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'
+# Set your Hugging Face token
+os.environ['HUGGINGFACEHUB_API_TOKEN'] = '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'
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Define the model and the Hugging Face API URL
+model_name = "gpt2"  # Use the model you want
+api_url = f"https://api-inference.huggingface.co/models/{model_name}"
 
-def ask_openai(prompt):
-    max_retries = 5  # Maximum number of retries
-    base_delay = 1  # Initial delay in seconds
-    requests_made = 0  # Counter for API requests
+# Create headers with your token
+headers = {
+    "Authorization": f"Bearer {os.environ['HUGGINGFACEHUB_API_TOKEN']}",
+}
 
-    for attempt in range(max_retries):
-        try:
-            requests_made += 1  # Increment request counter
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            logging.info(f"Requests made: {requests_made}")  # Log requests made
-            return response['choices'][0]['message']['content']
-        except openai.error.RateLimitError:
-            delay = base_delay * (2 ** attempt)  # Exponential backoff
-            logging.warning(f"Rate limit exceeded. Waiting for {delay} seconds...")
-            time.sleep(delay)
-        except Exception as e:
-            logging.error(f"An error occurred: {e}")
-            break
+# Function to generate text
+def generate_text(prompt):
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_length": 50,
+        },
+    }
+    
+    response = requests.post(api_url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        return response.json()[0]['generated_text']
     else:
-        logging.error("Max retries exceeded. Please check your API usage and try again later.")
+        print("Error:", response.status_code, response.text)
+        return None
 
-if __name__ == "__main__":
-    prompt = "What is the capital of France?"
-    answer = ask_openai(prompt)
-    if answer:
-        print(f"Answer: {answer}")
+# Example usage
+response_text = generate_text("What is the capital of France?")
+print(response_text)
