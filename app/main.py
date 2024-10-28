@@ -1,7 +1,7 @@
-from src.financial_data import get_financial_data
-from src.economic_indicators import get_economic_indicators
-from src.plot_stock import plot_stock_price
-from src.llm_recommendation import get_recommendation
+from financial_data import get_financial_data
+from economic_indicators import get_economic_indicators
+from plot_stock import plot_stock_price
+from llm_recommendation import get_recommendation
 
 def main():
     ticker = "JPM"

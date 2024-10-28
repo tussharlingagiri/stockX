@@ -1,5 +1,5 @@
 import yfinance as yf
-from src.logger import logger
+from logger import logger
 
 def get_financial_data(ticker):
     stock = yf.Ticker(ticker)
@@ -31,3 +31,7 @@ def get_financial_data(ticker):
         logger.error(f"{ticker} Expense Ratio calculation failed (possible division by zero).")
 
     return stock_price_data, pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense_ratio
+
+
+
+# Optional: print the returned data

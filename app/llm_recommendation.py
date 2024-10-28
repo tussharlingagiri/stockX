@@ -1,5 +1,5 @@
 import requests
-from src.config import HUGGINGFACE_API_URL, HUGGINGFACE_API_TOKEN
+from config import HUGGINGFACE_API_URL, HUGGINGFACE_API_TOKEN
 
 def get_recommendation(pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense_ratio, interest_rate, cpi):
     prompt = (
@@ -20,7 +20,25 @@ def get_recommendation(pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense
     try:
         response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
         response.raise_for_status()
-        return response.json()[0]['generated_text']
+        generated_text = response.json()[0]['generated_text'].strip()  # Clean up whitespace
+        return generated_text  # Return the generated recommendation
     except requests.RequestException as e:
         print("Error fetching recommendation:", e)
         return None
+
+# Example usage
+if __name__ == '__main__':
+    # Sample financial metrics for JP Morgan
+    pe_ratio = 12.364294
+    pb_ratio = 1.9305954
+    dividend_yield = 0.0225
+    payout_ratio = 0.2557
+    expense_ratio = 0.32658258064834356
+    interest_rate = 5.13
+    cpi = 315.301
+
+    recommendation = get_recommendation(pe_ratio, pb_ratio, dividend_yield, payout_ratio, expense_ratio, interest_rate, cpi)
+    if recommendation:
+        print("Recommendation:", recommendation)
+    else:
+        print("No recommendation could be generated.")

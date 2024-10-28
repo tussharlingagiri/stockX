@@ -1,5 +1,5 @@
 import unittest
-from src.financial_data import get_financial_data
+from app.financial_data import get_financial_data
 
 class TestFinancialData(unittest.TestCase):
     def test_get_financial_data(self):
